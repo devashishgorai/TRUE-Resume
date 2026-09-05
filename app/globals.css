@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f6f0e4;
+  --foreground: #162033;
 }
 
 @theme inline {
@@ -12,15 +12,47 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top, rgba(28, 59, 185, 0.12), transparent 36%),
+    linear-gradient(180deg, #f6f0e4 0%, #fbf8f1 100%);
 }
 
 body {
+  min-height: 100vh;
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+::selection {
+  background: rgba(31, 59, 179, 0.18);
+  color: #10172a;
+}
+
+.header-glow {
+  position: absolute;
+  top: -90px;
+  left: 32%;
+  width: 260px;
+  height: 150px;
+  border-radius: 999px;
+  background: rgba(177, 207, 255, 0.28);
+  filter: blur(34px);
+  pointer-events: none;
+  animation: header-drift 8s ease-in-out infinite alternate;
+}
+
+@keyframes header-drift {
+  from { transform: translateX(-70px) scale(0.9); opacity: 0.5; }
+  to { transform: translateX(150px) scale(1.15); opacity: 0.9; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header-glow { animation: none; }
 }
