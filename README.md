@@ -93,9 +93,8 @@ Score • Keywords • Skills • Suggestions 📊
 Add your screenshot here:
 
 ``` md
-<img width="2882" height="1662" alt="image" src="https://github.com/user-attachments/assets/9fe56a64-3b5f-48cb-bacb-fdc26aedfaf4" />
-
-```
+<img width="2882" height="1662" alt="image" src="https://github.com/user-attachments/assets/aa1ca81e-4514-4965-8023-7675d892460f" />
+`
 
 ### 🎬 Recommended Demo GIF
 
