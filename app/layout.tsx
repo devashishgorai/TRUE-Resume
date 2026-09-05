@@ -5,9 +5,9 @@ export const metadata: Metadata = {
   title: "ATS Prism",
   description: "Royal-blue ATS resume scoring dashboard with role selection and upload analysis.",
   icons: {
-    icon: "/metaicon.png",
-    shortcut: "/metaicon.png",
-    apple: "/metaicon.png",
+    icon: "/image.png",
+    shortcut: "/image.png",
+    apple: "/image.png",
   },
 };
 

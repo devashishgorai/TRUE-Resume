@@ -43,30 +43,47 @@ function wrapText(text: string, maxCharacters: number) {
   return lines;
 }
 
-async function downloadResumePdf(content: string, role: string) {
+async function downloadResumePdf(content: string, improvements: string[], summary: string, score: number, role: string) {
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdf.embedFont(StandardFonts.HelveticaBold);
   let logo;
   try {
-    const logoBytes = await fetch("/metaicon.png").then((response) => response.arrayBuffer());
+    const logoBytes = await fetch("/image.png").then((response) => response.arrayBuffer());
     logo = await pdf.embedPng(logoBytes);
   } catch {
     logo = undefined;
   }
-  let page = pdf.addPage([612, 792]);
-  let y = 622;
-  const addPageIfNeeded = () => {
-    if (y < 58) {
-      page = pdf.addPage([612, 792]);
-      y = 742;
-    }
+
+  const drawHeader = (page: ReturnType<typeof pdf.addPage>, title: string, subtitle: string) => {
+    if (logo) page.drawImage(logo, { x: 500, y: 696, width: 64, height: 64 });
+    page.drawText(title, { x: 48, y: 710, size: 20, font: boldFont, color: rgb(0.08, 0.15, 0.45) });
+    page.drawText(subtitle, { x: 48, y: 690, size: 10, font, color: rgb(0.35, 0.4, 0.52) });
+    page.drawLine({ start: { x: 48, y: 674 }, end: { x: 564, y: 674 }, thickness: 1, color: rgb(0.82, 0.85, 0.93) });
   };
 
-  if (logo) page.drawImage(logo, { x: 278, y: 704, width: 56, height: 56 });
-  page.drawText("Improved Resume", { x: 48, y: 682, size: 20, font: boldFont, color: rgb(0.08, 0.15, 0.45) });
-  page.drawText(`ATS-ready draft for ${role}`, { x: 48, y: 664, size: 10, font, color: rgb(0.35, 0.4, 0.52) });
-  page.drawLine({ start: { x: 48, y: 646 }, end: { x: 564, y: 646 }, thickness: 1, color: rgb(0.82, 0.85, 0.93) });
+  const pageOne = pdf.addPage([612, 792]);
+  drawHeader(pageOne, "Increase your ATS score", `Target role: ${role}  |  Current score: ${score}/100`);
+  let y = 642;
+  for (const [index, improvement] of improvements.entries()) {
+    const lines = wrapText(improvement, 82);
+    pageOne.drawCircle({ x: 56, y: y + 3, size: 10, color: rgb(0.15, 0.28, 0.65) });
+    pageOne.drawText(String(index + 1), { x: 53.2, y: y - 1, size: 8, font: boldFont, color: rgb(1, 1, 1) });
+    for (const line of lines) {
+      pageOne.drawText(line, { x: 78, y, size: 10.5, font, color: rgb(0.1, 0.12, 0.18) });
+      y -= 16;
+    }
+    y -= 12;
+  }
+  pageOne.drawText("Analysis summary", { x: 48, y: Math.max(y, 130), size: 12, font: boldFont, color: rgb(0.08, 0.15, 0.45) });
+  for (const line of wrapText(summary, 92).slice(0, 4)) {
+    y = Math.max(y - 21, 105);
+    pageOne.drawText(line, { x: 48, y, size: 9.5, font, color: rgb(0.35, 0.4, 0.52) });
+  }
+
+  const pageTwo = pdf.addPage([612, 792]);
+  drawHeader(pageTwo, "Ideal resume sample", `ATS-ready draft for ${role}`);
+  y = 642;
   for (const rawLine of content.replace(/\r/g, "").split("\n")) {
     const trimmedLine = rawLine.trim();
     const isBullet = /^[-*\u2022]\s+/.test(trimmedLine);
@@ -74,11 +91,9 @@ async function downloadResumePdf(content: string, role: string) {
     const cleanLine = trimmedLine.replace(/^#+\s*/, "").replace(/^[-*\u2022]\s*/, "").replace(/\*\*/g, "").trim();
     if (!cleanLine) { y -= 10; continue; }
     const wrappedLines = wrapText(cleanLine, isBullet ? 84 : 92);
-    if (isHeading) y -= 6;
     for (const [index, line] of wrappedLines.entries()) {
-      addPageIfNeeded();
-      page.drawText(line, { x: isBullet ? 64 : 48, y, size: isHeading ? 10.5 : 10, font: isHeading ? boldFont : font, color: isHeading ? rgb(0.08, 0.15, 0.45) : rgb(0.1, 0.12, 0.18) });
-      if (isBullet && index === 0) page.drawCircle({ x: 53, y: y + 3, size: 1.8, color: rgb(0.15, 0.28, 0.65) });
+      pageTwo.drawText(line, { x: isBullet ? 64 : 48, y, size: isHeading ? 10.5 : 10, font: isHeading ? boldFont : font, color: isHeading ? rgb(0.08, 0.15, 0.45) : rgb(0.1, 0.12, 0.18) });
+      if (isBullet && index === 0) pageTwo.drawCircle({ x: 53, y: y + 3, size: 1.8, color: rgb(0.15, 0.28, 0.65) });
       y -= isHeading ? 17 : 15;
     }
     y -= isHeading ? 4 : 2;
@@ -118,14 +133,14 @@ export default function Home() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  async function analyzeWithGemini(uploaded: File, roleLabel: string) {
+  async function analyzeWithGemini(uploaded: File, roleLabel: string, resumeSnapshot = resumeText) {
     setIsScanning(true);
     setAnalysisError("");
     try {
       const formData = new FormData();
       formData.append("resume", uploaded);
       formData.append("role", roleLabel);
-      formData.append("resumeText", resumeText);
+      formData.append("resumeText", resumeSnapshot);
       const response = await fetch("/api/analyze", { method: "POST", body: formData });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Analysis failed");
@@ -143,12 +158,9 @@ export default function Home() {
     if (!uploaded) return;
     setFile(uploaded);
     setAnalysisError("");
-    try {
-      const text = await readResume(uploaded);
-      setResumeText(text);
-    } finally {
-      void analyzeWithGemini(uploaded, role.label);
-    }
+    const text = await readResume(uploaded);
+    setResumeText(text);
+    void analyzeWithGemini(uploaded, role.label, text);
   }
 
   function selectRole(id: string, button: HTMLButtonElement) {
@@ -200,7 +212,7 @@ export default function Home() {
 
             {analysisError && <p className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-left text-sm font-medium text-red-700">{analysisError}</p>}
 
-            {file && !isScanning && <div className="mt-7 rounded-2xl bg-[#eef3ff] px-5 py-4 text-left"><div className="flex items-center justify-between gap-4"><div><p className="text-sm font-bold text-[#172044]">ATS score for {role.label}</p><p className="mt-1 text-xs text-[#68728d]">{geminiResult ? "Verified by Gemini against the selected role" : "Local preview score"}</p></div><p className="text-3xl font-black text-[#2445b5]">{geminiResult?.score ?? result.score}<span className="text-base text-[#8490ae]">/100</span></p></div><div className="mt-4 h-2 overflow-hidden rounded-full bg-[#d7def5]"><div className="h-full rounded-full bg-[#294dc5] transition-all duration-500" style={{ width: `${geminiResult?.score ?? result.score}%` }} /></div>{geminiResult ? <><p className="mt-4 text-sm leading-6 text-[#4e5c7a]">{geminiResult.summary}</p><div className="mt-4 rounded-xl bg-white/75 p-4"><p className="text-xs font-bold uppercase tracking-[0.14em] text-[#2948ac]">Improve your resume</p><ul className="mt-2 space-y-2 text-sm leading-5 text-[#4e5c7a]">{geminiResult.improvements.map((item) => <li key={item} className="flex gap-2"><span className="text-[#2948ac]">•</span>{item}</li>)}</ul></div><button onClick={() => downloadResumePdf(geminiResult.improvedResume, role.label)} className="mt-4 w-full rounded-xl bg-[#20369f] px-4 py-3 text-sm font-bold text-white shadow-lg shadow-[#20369f]/20 transition hover:bg-[#172b82]">Download improved resume PDF</button></> : <div className="mt-3 flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-white px-3 py-1.5 font-semibold text-emerald-700">{result.matches.length} keywords matched</span><span className="rounded-full bg-white px-3 py-1.5 font-semibold text-amber-700">{result.missing.length} to improve</span></div>}</div>}
+            {file && !isScanning && <div className="mt-7 rounded-2xl bg-[#eef3ff] px-5 py-4 text-left"><div className="flex items-center justify-between gap-4"><div><p className="text-sm font-bold text-[#172044]">ATS score for {role.label}</p><p className="mt-1 text-xs text-[#68728d]">{geminiResult ? (geminiResult.analysisSource === "local" ? "Local fallback analysis" : "Verified by Gemini against the selected role") : "Local preview score"}</p></div><p className="text-3xl font-black text-[#2445b5]">{geminiResult?.score ?? result.score}<span className="text-base text-[#8490ae]">/100</span></p></div><div className="mt-4 h-2 overflow-hidden rounded-full bg-[#d7def5]"><div className="h-full rounded-full bg-[#294dc5] transition-all duration-500" style={{ width: `${geminiResult?.score ?? result.score}%` }} /></div>{geminiResult ? <><p className="mt-4 text-sm leading-6 text-[#4e5c7a]">{geminiResult.summary}</p><div className="mt-4 rounded-xl bg-white/75 p-4"><p className="text-xs font-bold uppercase tracking-[0.14em] text-[#2948ac]">Improve your resume</p><ul className="mt-2 space-y-2 text-sm leading-5 text-[#4e5c7a]">{geminiResult.improvements.map((item) => <li key={item} className="flex gap-2"><span className="text-[#2948ac]">•</span>{item}</li>)}</ul></div><button onClick={() => downloadResumePdf(geminiResult.improvedResume, geminiResult.improvements, geminiResult.summary, geminiResult.score, role.label)} className="mt-4 w-full rounded-xl bg-[#20369f] px-4 py-3 text-sm font-bold text-white shadow-lg shadow-[#20369f]/20 transition hover:bg-[#172b82]">Download improved resume PDF</button></> : <div className="mt-3 flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-white px-3 py-1.5 font-semibold text-emerald-700">{result.matches.length} keywords matched</span><span className="rounded-full bg-white px-3 py-1.5 font-semibold text-amber-700">{result.missing.length} to improve</span></div>}</div>}
           </div>
         </div>
       </section>
