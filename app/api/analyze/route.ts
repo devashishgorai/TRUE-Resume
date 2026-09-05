@@ -14,7 +14,7 @@ function cleanJson(value: string) {
 }
 
 export async function POST(request: Request) {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) return Response.json({ error: "GEMINI_API_KEY is not configured." }, { status: 500 });
 
   const formData = await request.formData();
@@ -55,6 +55,9 @@ Evaluate keyword alignment, clarity, measurable impact, structure, and ATS reada
   } catch (error) {
     console.error("Gemini resume analysis failed", error);
     const message = error instanceof Error ? error.message : "Unknown Gemini error";
+    if (message.includes("401") || message.includes("UNAUTHENTICATED") || message.includes("invalid authentication")) {
+      return Response.json({ error: "Vercel is using an invalid or expired Gemini API key. Update GEMINI_API_KEY in Vercel Environment Variables, then redeploy." }, { status: 502 });
+    }
     const isJsonError = message.includes("JSON") || message.includes("Unexpected token");
     return Response.json({ error: isJsonError ? "Gemini returned an unexpected response. Please try again." : `Gemini request failed: ${message.slice(0, 180)}` }, { status: 502 });
   }
