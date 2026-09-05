@@ -5,7 +5,7 @@ import Image from "next/image";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
 type Role = { id: string; label: string; keywords: string[] };
-type GeminiResult = { score: number; summary: string; improvements: string[]; improvedResume: string };
+type GeminiResult = { score: number; summary: string; improvements: string[]; improvedResume: string; analysisSource?: "gemini" | "local" };
 
 const roles: Role[] = [
   { id: "frontend", label: "Frontend Developer", keywords: ["react", "next", "typescript", "javascript", "css", "html", "accessibility", "performance", "testing"] },
@@ -125,6 +125,7 @@ export default function Home() {
       const formData = new FormData();
       formData.append("resume", uploaded);
       formData.append("role", roleLabel);
+      formData.append("resumeText", resumeText);
       const response = await fetch("/api/analyze", { method: "POST", body: formData });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Analysis failed");

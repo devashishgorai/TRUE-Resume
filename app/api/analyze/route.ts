@@ -13,16 +13,78 @@ function cleanJson(value: string) {
   return value.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
 }
 
+function getRoleKeywords(role: string) {
+  const normalized = role.toLowerCase();
+  if (normalized.includes("frontend")) return ["react", "next", "typescript", "javascript", "css", "html", "accessibility", "performance", "testing"];
+  if (normalized.includes("backend")) return ["api", "node", "database", "sql", "postgres", "redis", "docker", "kubernetes", "aws", "scalability"];
+  if (normalized.includes("product")) return ["product", "roadmap", "metrics", "experiment", "stakeholder", "launch", "retention", "growth", "strategy", "research"];
+  if (normalized.includes("design")) return ["figma", "wireframe", "prototype", "research", "usability", "design system", "interaction", "visual", "accessibility", "journey"];
+  if (normalized.includes("data")) return ["sql", "python", "excel", "tableau", "power bi", "analytics", "dashboard", "data", "statistics"];
+  if (normalized.includes("marketing")) return ["marketing", "campaign", "seo", "content", "social media", "analytics", "brand", "growth", "conversion"];
+  return ["experience", "skills", "leadership", "communication", "impact", "results"];
+}
+
+function buildFallbackAnalysis(role: string, resumeText: string): GeminiResult {
+  const normalized = resumeText.toLowerCase();
+  const keywords = getRoleKeywords(role);
+  const matches = keywords.filter((keyword) => normalized.includes(keyword));
+  const missing = keywords.filter((keyword) => !matches.includes(keyword));
+
+  const score = Math.max(
+    25,
+    Math.min(
+      92,
+      34 + matches.length * 7 - Math.max(0, missing.length - 2) * 3 + Math.min(12, Math.floor(resumeText.length / 250)),
+    ),
+  );
+
+  const improvementPool = [
+    `Add more explicit ${keywords[0] || "role-specific"} keywords to improve ATS matching.`,
+    "Quantify impact with numbers, percentages, or outcomes where possible.",
+    "Tighten the summary so it mirrors the target role more closely.",
+    "Reorder bullet points so the strongest achievements appear first.",
+    "Use consistent section headings like Experience, Projects, Skills, and Education.",
+    "Keep bullet points concise and action-oriented for faster scanning.",
+  ];
+
+  const improvedResume = [
+    "Target Role:",
+    role,
+    "",
+    "Summary",
+    "Resume details could not be analyzed by Gemini, so this draft is based on local ATS heuristics.",
+    "",
+    "Suggested Improvements",
+    ...missing.slice(0, 5).map((keyword) => `- Add evidence of ${keyword}.`),
+    ...matches.slice(0, 3).map((keyword) => `- Keep showing ${keyword} examples prominently.`),
+    "- Add measurable outcomes to your strongest bullets.",
+  ].join("\n");
+
+  return {
+    score,
+    summary: matches.length
+      ? `Local analysis found ${matches.length} role-aligned keywords for ${role}.`
+      : `Local analysis could not verify strong role alignment for ${role}, so the score is based on ATS heuristics.`,
+    improvements: improvementPool.slice(0, 5),
+    improvedResume,
+  };
+}
+
 export async function POST(request: Request) {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
-  if (!apiKey) return Response.json({ error: "GEMINI_API_KEY is not configured." }, { status: 500 });
-
   const formData = await request.formData();
   const resume = formData.get("resume");
   const role = String(formData.get("role") || "General professional");
+  const resumeText = String(formData.get("resumeText") || "");
 
   if (!(resume instanceof File)) return Response.json({ error: "Please upload a resume file." }, { status: 400 });
   if (resume.size > 10 * 1024 * 1024) return Response.json({ error: "Please upload a file smaller than 10 MB." }, { status: 413 });
+
+  const fallback = () => Response.json({ ...buildFallbackAnalysis(role, resumeText || `${resume.name} ${resume.type}`), analysisSource: "local" });
+
+  if (!apiKey) {
+    return fallback();
+  }
 
   const buffer = Buffer.from(await resume.arrayBuffer());
   const mimeType = resume.type || "application/octet-stream";
@@ -51,14 +113,10 @@ Evaluate keyword alignment, clarity, measurable impact, structure, and ATS reada
       summary: parsed.summary,
       improvements: Array.isArray(parsed.improvements) ? parsed.improvements.slice(0, 6) : [],
       improvedResume: parsed.improvedResume,
+      analysisSource: "gemini",
     });
   } catch (error) {
     console.error("Gemini resume analysis failed", error);
-    const message = error instanceof Error ? error.message : "Unknown Gemini error";
-    if (message.includes("401") || message.includes("UNAUTHENTICATED") || message.includes("invalid authentication")) {
-      return Response.json({ error: "Vercel is using an invalid or expired Gemini API key. Update GEMINI_API_KEY in Vercel Environment Variables, then redeploy." }, { status: 502 });
-    }
-    const isJsonError = message.includes("JSON") || message.includes("Unexpected token");
-    return Response.json({ error: isJsonError ? "Gemini returned an unexpected response. Please try again." : `Gemini request failed: ${message.slice(0, 180)}` }, { status: 502 });
+    return fallback();
   }
 }
