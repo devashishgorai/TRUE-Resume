@@ -1,7 +1,11 @@
-{align="center"}
-# ✨ ATS Prism
+<div align="center">
 
-### AI-Powered Resume Fit Checker
+## 🚀 ATS Prism
+
+Your AI-powered resume analyzer.
+
+</div>
+
 
 **Turn your resume into a stronger job application --- powered by Gemini
 AI.**
