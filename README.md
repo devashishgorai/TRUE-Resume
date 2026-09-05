@@ -15,7 +15,6 @@ AI.**
 ![Gemini](https://img.shields.io/badge/Gemini_AI-4285F4?style=for-the-badge&logo=google&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
 
-`<img src="https://readme-typing-svg.demolab.com?font=Inter&weight=600&size=22&duration=2800&pause=900&color=4169E1&center=true&vCenter=true&width=700&lines=Upload+your+resume+%F0%9F%93%84;Choose+your+target+role+%F0%9F%8E%AF;Get+AI-powered+ATS+insights+%F0%9F%A4%96;Improve+your+resume+with+confidence+%F0%9F%9A%80" alt="Animated ATS Prism banner" />`{=html}
 
 **Select a role → Upload your resume → Scan → Improve**
 :::
@@ -94,7 +93,8 @@ Score • Keywords • Skills • Suggestions 📊
 Add your screenshot here:
 
 ``` md
-![ATS Prism Preview](./assets/preview.png)
+<img width="2882" height="1662" alt="image" src="https://github.com/user-attachments/assets/9fe56a64-3b5f-48cb-bacb-fdc26aedfaf4" />
+
 ```
 
 ### 🎬 Recommended Demo GIF
