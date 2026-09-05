@@ -1,4 +1,4 @@
-::: {align="center"}
+{align="center"}
 # ✨ ATS Prism
 
 ### AI-Powered Resume Fit Checker
